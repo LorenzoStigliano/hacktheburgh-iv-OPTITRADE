@@ -48,6 +48,27 @@ sp_market_direction, esx_market_direction = 0, 0
 position_sp, position_esx = 0, 0
 
 
+def start_autotrader():
+    """
+    This is where the bot starts and executes.
+    """
+    global sp_market_direction, esx_market_direction
+    iteration = 0
+    subscribe()
+    while True:
+        if iteration !=0:
+            period_of_observation(iteration)
+            iteration += 1
+        else:
+            period_of_observation(iteration)
+            iteration +=1
+
+        print("Current Position with SP_FUTURE: " + str(position_sp))
+        print("Current Position with ESX_FUTURE: " + str(position_esx))
+        print("General SP_FUTURE direction: " + str(sp_market_direction))
+        print("General ESX_FUTURE direction: " + str(esx_market_direction))
+
+
 def general_direction_market(price_sell_future):
     """
     Calulating LinearRegression for price of selling the stock during the whole
@@ -61,28 +82,6 @@ def general_direction_market(price_sell_future):
     return model.coef_
 
 
-def start_autotrader():
-    """
-    This is where the bot starts and executes.
-    """
-    iteration = 0
-    subscribe()
-    while True:
-        if iteration !=0:
-            sp_market_direction = general_direction_market(price_sell_sp_future)
-            esx_market_direction = general_direction_market(price_sell_esx)
-            period_of_observation(sp_market_direction,esx_market_direction,iteration)
-            iteration += 1
-        else:
-            period_of_observation(0,0,iteration)
-            iteration +=1
-
-        print("Current Position with SP_FUTURE: " + str(position_sp))
-        print("Current Position with ESX_FUTURE: " + str(position_esx))
-        print("General SP_FUTURE direction:" + str(position_sp))
-        print("General ESX_FUTURE direction:" + str(position_esx))
-
-
 def subscribe():
     iml_sock.sendto(IML_INIT_MESSAGE.encode(), (REMOTE_IP, IML_UDP_PORT_REMOTE))
 
@@ -94,14 +93,16 @@ def rest_price_data():
     price_sell_esx, price_buy_esx = [], []
 
 
-def period_of_observation(sp_market_dir,esx_market_dir,iteration):
+def period_of_observation(iteration):
     """
     Wait for messages from the exchange and
     call handle_message on each of them.
     """
 
+    global sp_market_direction, esx_market_direction
+
     if iteration !=0:
-        for i in range(50):
+        for i in range(30):
             ready_socks, _, _ = select.select([iml_sock, eml_sock], [], [])
 
             for socket in ready_socks:
@@ -114,13 +115,15 @@ def period_of_observation(sp_market_dir,esx_market_dir,iteration):
                     if data_communication["product"] == "SP-FUTURE":
                         sp_sell = data_communication["bid_price"]
                         sp_buy = data_communication["ask_price"]
-                        decision(sp_market_dir, price_buy_sp_future, price_sell_sp_future, sp_buy, sp_sell,
+                        decision(sp_market_direction, price_buy_sp_future, price_sell_sp_future, sp_buy, sp_sell,
                                  "SP-FUTURE")
                     else:
                         esx_sell = data_communication["bid_price"]
                         esx_buy = data_communication["ask_price"]
-                        decision(esx_market_dir, price_buy_esx, price_sell_esx, esx_buy, esx_sell,
+                        decision(esx_market_direction, price_buy_esx, price_sell_esx, esx_buy, esx_sell,
                                  "ESX-FUTURE")
+        sp_market_direction = general_direction_market(price_sell_sp_future)
+        esx_market_direction = general_direction_market(price_sell_esx)
         rest_price_data()
 
     else:
@@ -158,13 +161,13 @@ def decision(direction, price_buy_future, price_sell_future, current_buy, curren
                 print("BUYING")
     else:
         # Sell
-        if direction > 0:
+        if direction > 0.2:
             if current_sell > 1.5 * lifetime_sd_sell_price + lifetime_mean_sell_price and (position_esx > 0 and position_esx < 4):
                 send_order(future, "SELL", current_sell, 50)
                 position_esx -= 1
                 print("SELLING")
         # Buy
-        if direction < 0:
+        if direction < -0.2:
             if current_buy < 1.5 * lifetime_sd_buy_price + lifetime_mean_buy_price and (position_esx == 0 or position_esx == 1 or position_esx == 2):
                 send_order(future, "BUY", current_buy, 50)
                 position_esx += 1
