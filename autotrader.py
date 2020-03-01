@@ -38,32 +38,23 @@ iml_sock.bind((UDP_ANY_IP, IML_UDP_PORT_LOCAL))
 # Auto trader
 # -------------------------------------
 # Sell
-price_sell_sp_future = []
-volume_sell_sp_future = []
+price_sell_sp_future, volume_sell_sp_future = [], []
 # Buy
-price_buy_sp_future = []
-volume_buy_sp_future = []
+price_buy_sp_future, volume_buy_sp_future = [], []
 # Sell
-price_sell_esx = []
-volume_sell_esx = []
+price_sell_esx, volume_sell_esx = [], []
 # Buy
-price_buy_esx = []
-volume_buy_esx = []
+price_buy_esx, volume_buy_esx = [], []
 
 #Trade
-trade_price_sp_future = []
-trade_volume_sp_future = []
-trade_side_sp_futures = []
+trade_price_sp_future, trade_volume_sp_future, trade_side_sp_futures = [], [], []
 
-trade_price_esx = []
-trade_volume_esx = []
-trade_side_esx = []
+trade_price_esx, trade_volume_esx, trade_side_esx = [], [], []
 
-sp_market_direction = 0
-esx_market_direction = 0
+sp_market_direction, esx_market_direction = 0, 0
 
-position_sp = 0
-position_esx = 0
+position_sp, position_esx = 0, 0
+
 
 def general_direction_market(price_sell_future):
     X = np.array(range(len(price_sell_future))).reshape(-1, 1)
@@ -71,10 +62,9 @@ def general_direction_market(price_sell_future):
     model = LinearRegression().fit(X, y)
     return model.coef_
 
+
 def start_autotrader():
-
     iteration = 0
-
     subscribe()
     while True:
         if iteration !=0:
@@ -88,6 +78,7 @@ def start_autotrader():
 
         print("Current Position with SP_FUTURE: " + str(position_sp))
         print("Current Position with ESX_FUTURE: " + str(position_esx))
+
 
 def subscribe():
     iml_sock.sendto(IML_INIT_MESSAGE.encode(), (REMOTE_IP, IML_UDP_PORT_REMOTE))
@@ -129,6 +120,7 @@ def period_of_observation(sp_market_dir,esx_market_dir,iteration):
                 message = data.decode('utf-8')
                 data_communication = read_data(message)
                 add_data(data_communication)
+
 
 def decision(direction, price_buy_future, price_sell_future, current_buy, current_sell,future):
 
@@ -200,7 +192,6 @@ def read_data(message):
     if type == "TYPE=ORDER_ACK":
 
         return {"type": "TYPE=ORDER_ACK","product":"NA"}
-
 
     if type == "TYPE=PRICE":
         feedcode = comps[1].split("=")[1]
