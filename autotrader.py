@@ -1,6 +1,5 @@
 import socket
 import select
-import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
@@ -9,7 +8,6 @@ UDP_ANY_IP = ""
 
 USERNAME = "Team34"
 PASSWORD = "AJDdrCpk"
-
 
 # -------------------------------------
 # EML code (EML is execution market link)
@@ -20,7 +18,6 @@ EML_UDP_PORT_REMOTE = 8001
 
 eml_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 eml_sock.bind((UDP_ANY_IP, EML_UDP_PORT_LOCAL))
-
 
 # -------------------------------------
 # IML code (IML is information market link)
@@ -33,30 +30,31 @@ IML_INIT_MESSAGE = "TYPE=SUBSCRIPTION_REQUEST"
 iml_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 iml_sock.bind((UDP_ANY_IP, IML_UDP_PORT_LOCAL))
 
-
 # -------------------------------------
 # Auto trader
 # -------------------------------------
-# Sell
+# Sell and Buy SP_FUTURE
 price_sell_sp_future, volume_sell_sp_future = [], []
-# Buy
 price_buy_sp_future, volume_buy_sp_future = [], []
-# Sell
+# Sell and Buy ESX_FUTURE
 price_sell_esx, volume_sell_esx = [], []
-# Buy
 price_buy_esx, volume_buy_esx = [], []
-
-#Trade
+#Trade SP_FUTURE and ESX_FUTURE
 trade_price_sp_future, trade_volume_sp_future, trade_side_sp_futures = [], [], []
-
 trade_price_esx, trade_volume_esx, trade_side_esx = [], [], []
-
+#General market direction coeffient of LinearRegression model
 sp_market_direction, esx_market_direction = 0, 0
-
+#Position of SP_FUTURE and ESX_FUTURE (0 hold none, max holding 3)
 position_sp, position_esx = 0, 0
 
 
 def general_direction_market(price_sell_future):
+    """
+    Calulating LinearRegression for price of selling the stock during the whole
+    liftime of the stock.
+    Input: (list[int]) prices of stocks in order.
+    Output: (double) coeffient of regression line.
+    """
     X = np.array(range(len(price_sell_future))).reshape(-1, 1)
     y = price_sell_future
     model = LinearRegression().fit(X, y)
@@ -64,6 +62,9 @@ def general_direction_market(price_sell_future):
 
 
 def start_autotrader():
+    """
+    This is where the bot starts and executes.
+    """
     iteration = 0
     subscribe()
     while True:
@@ -78,10 +79,19 @@ def start_autotrader():
 
         print("Current Position with SP_FUTURE: " + str(position_sp))
         print("Current Position with ESX_FUTURE: " + str(position_esx))
+        print("General SP_FUTURE direction:" + str(position_sp))
+        print("General ESX_FUTURE direction:" + str(position_esx))
 
 
 def subscribe():
     iml_sock.sendto(IML_INIT_MESSAGE.encode(), (REMOTE_IP, IML_UDP_PORT_REMOTE))
+
+
+def rest_price_data():
+    global price_sell_sp_future, price_buy_sp_future, price_sell_esx, price_buy_esx
+
+    price_sell_sp_future, price_buy_sp_future = [], []
+    price_sell_esx, price_buy_esx = [], []
 
 
 def period_of_observation(sp_market_dir,esx_market_dir,iteration):
@@ -91,7 +101,7 @@ def period_of_observation(sp_market_dir,esx_market_dir,iteration):
     """
 
     if iteration !=0:
-        for i in range(30):
+        for i in range(50):
             ready_socks, _, _ = select.select([iml_sock, eml_sock], [], [])
 
             for socket in ready_socks:
@@ -111,6 +121,7 @@ def period_of_observation(sp_market_dir,esx_market_dir,iteration):
                         esx_buy = data_communication["ask_price"]
                         decision(esx_market_dir, price_buy_esx, price_sell_esx, esx_buy, esx_sell,
                                  "ESX-FUTURE")
+        rest_price_data()
 
     else:
         for i in range(10):
